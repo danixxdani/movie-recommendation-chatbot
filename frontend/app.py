@@ -289,7 +289,7 @@ with col4:
 st.markdown("---")
 
 # Backend API URL
-BACKEND_URL = "http://localhost:8000/recommend"
+BACKEND_URL = "https://movie-recommendation-chatbot-production.up.railway.app/recommend"
 
 # Initialize Chat History
 if "messages" not in st.session_state:
