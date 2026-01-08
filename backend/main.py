@@ -44,6 +44,18 @@ except Exception as e:
 class RecommendRequest(BaseModel):
     user_input: str
 
+@app.get("/")
+async def root():
+    return {"message": "CineMatch Backend API is running!"}
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "keywords_loaded": len(ALL_KEYWORDS),
+        "openai_configured": bool(OPENAI_API_KEY)
+    }
+
 @app.post("/recommend")
 async def recommend_movies(request: RecommendRequest):
     if not ALL_KEYWORDS or KEYWORD_VECTORS.size == 0:
