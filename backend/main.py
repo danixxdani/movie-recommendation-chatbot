@@ -9,35 +9,35 @@ from dotenv import load_dotenv
 import os
 import uvicorn
 
-# 1. 환경 변수 로드 및 OpenAI 설정
+# 1. Load environment variables and OpenAI setup
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY를 찾을 수 없습니다.")
+    raise ValueError("OPENAI_API_KEY not found.")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 app = FastAPI()
 
-# CORS 설정 추가 (중요!)
+# Add CORS middleware (Important!)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Streamlit 앱에서 접근 허용
+    allow_origins=["*"],  # Allow access from Streamlit app
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 2. 키워드 데이터베이스(캐시) 로드
+# 2. Load keyword database (cache)
 CACHE_FILE = "keyword_cache.pkl"
 try:
     with open(CACHE_FILE, "rb") as f:
         cache = pickle.load(f)
         ALL_KEYWORDS = cache["keywords"]
         KEYWORD_VECTORS = cache["vectors"]
-    print(f"✅ DB 로드 완료: {len(ALL_KEYWORDS)}개의 키워드가 준비되었습니다.")
+    print(f"✅ DB loaded successfully: {len(ALL_KEYWORDS)} keywords ready.")
 except Exception as e:
-    print(f"❌ 캐시 로드 실패: {e}")
+    print(f"❌ Cache loading failed: {e}")
     ALL_KEYWORDS = []
     KEYWORD_VECTORS = np.array([])
 
@@ -59,10 +59,10 @@ async def health_check():
 @app.post("/recommend")
 async def recommend_movies(request: RecommendRequest):
     if not ALL_KEYWORDS or KEYWORD_VECTORS.size == 0:
-        raise HTTPException(status_code=500, detail="서버의 키워드 데이터베이스가 비어있습니다.")
+        raise HTTPException(status_code=500, detail="Server keyword database is empty.")
 
     try:
-        # --- Step 1: 의도 확장 (Intent Expansion with Core Preservation) ---
+        # --- Step 1: Intent Expansion with Core Preservation ---
         prompt_1 = f"""
         User Input: "{request.user_input}"
         
@@ -91,7 +91,7 @@ async def recommend_movies(request: RecommendRequest):
         )
         llm_expanded_keywords = [k.strip() for k in response_1.choices[0].message.content.split(",") if k.strip()]
 
-        # --- Step 2: 의미적 그물망 검색 (Broad Semantic Retrieval) ---
+        # --- Step 2: Broad Semantic Retrieval ---
         query_resp = client.embeddings.create(input=llm_expanded_keywords, model="text-embedding-3-small")
         query_vectors = np.array([d.embedding for d in query_resp.data]).astype('float32')
         
@@ -108,7 +108,7 @@ async def recommend_movies(request: RecommendRequest):
         if not candidate_list:
             return {"recommended_keywords": [], "llm_generated_keywords": llm_expanded_keywords}
 
-        # --- Step 3: 맥락 기반 정제 및 조합 (Context-Aware Filtering & Combination) ---
+        # --- Step 3: Context-Aware Filtering & Combination ---
         verification_prompt = f"""
         User's Original Intent: "{request.user_input}"
         Database Candidates: {", ".join(candidate_list)}
