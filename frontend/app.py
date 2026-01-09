@@ -1,18 +1,19 @@
 import streamlit as st
 import requests
+import os
 
 # Page Config
-st.set_page_config(page_title="CineMatch AI", page_icon="🎬", layout="centered")
+st.set_page_config(
+    page_title="CineMatch AI", 
+    page_icon="🎬", 
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
-# Custom CSS for enhanced chat bubbles
+# Custom CSS for enhanced chat bubbles with theme support
 st.markdown("""
     <style>
-    /* Main container styling */
-    .main {
-        background: #0f0f0f;
-    }
-    
-    /* Title styling */
+    /* Title styling - works in both themes */
     h1 {
         background: linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%);
         -webkit-background-clip: text;
@@ -25,7 +26,6 @@ st.markdown("""
     /* Caption styling */
     .stCaption {
         text-align: center;
-        color: #9ca3af;
         font-size: 1em;
         margin-bottom: 1rem;
     }
@@ -38,47 +38,50 @@ st.markdown("""
         margin-bottom: 1rem;
     }
     
-    /* Force equal column widths */
-    div[data-testid="column"] {
-        flex: 1 1 0 !important;
+    /* Container for starter buttons with flexbox */
+    div[data-testid="stHorizontalBlock"]:has(.stButton) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+        align-items: flex-start !important;
+    }
+    
+    div[data-testid="stHorizontalBlock"]:has(.stButton) > div {
+        flex: 0 0 auto !important;
+        width: auto !important;
         min-width: 0 !important;
-        padding: 0 5px !important;
     }
     
     /* Streamlit buttons styling */
     .stButton {
-        width: 100% !important;
+        display: inline-block !important;
     }
     
     .stButton > button {
-        background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%) !important;
-        color: #a78bfa !important;
-        border: 1px solid #3a3a3a !important;
-        border-radius: 20px !important;
-        padding: 12px 16px !important;
-        font-size: 0.88em !important;
+        background: linear-gradient(135deg, #8b5cf6 20%, #7c3aed 80%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 25px !important;
+        padding: 12px 24px !important;
+        font-size: 0.9em !important;
         font-weight: 500 !important;
         transition: all 0.2s ease !important;
-        white-space: normal !important;
+        white-space: nowrap !important;
         height: auto !important;
-        min-height: 50px !important;
-        width: 100% !important;
+        width: auto !important;
         line-height: 1.4 !important;
         text-align: center !important;
     }
     
     .stButton > button:hover {
-        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-        color: white;
-        border-color: #8b5cf6;
+        background: linear-gradient(135deg, #7c3aed 20%, #6d28d9 80%) !important;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.5);
     }
     
     /* Divider */
     hr {
         border: none;
-        border-top: 1px solid #2a2a2a;
         margin: 1.5rem 0;
     }
     
@@ -112,21 +115,39 @@ st.markdown("""
         text-align: left;
     }
     
-    /* Assistant message bubble - Left aligned */
+    /* Assistant message bubble - Left aligned - adapts to theme */
     .stChatMessage[data-testid="assistant-message"] {
-        background: #1f1f1f;
         border-radius: 18px 18px 18px 4px;
         padding: 12px 18px;
         margin: 8px 10px 8px 0;
         max-width: 85%;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
         display: block;
         width: fit-content;
-        border: 1px solid #2a2a2a;
     }
     
-    .stChatMessage[data-testid="assistant-message"] p {
+    /* Dark theme assistant bubble */
+    [data-theme="dark"] .stChatMessage[data-testid="assistant-message"],
+    .main .stChatMessage[data-testid="assistant-message"] {
+        background: #1f1f1f;
+        border: 1px solid #2a2a2a;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    [data-theme="dark"] .stChatMessage[data-testid="assistant-message"] p,
+    .main .stChatMessage[data-testid="assistant-message"] p {
         color: #e5e7eb !important;
+        margin: 0 !important;
+    }
+    
+    /* Light theme assistant bubble */
+    [data-theme="light"] .stChatMessage[data-testid="assistant-message"] {
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    [data-theme="light"] .stChatMessage[data-testid="assistant-message"] p {
+        color: #1f2937 !important;
         margin: 0 !important;
     }
     
@@ -134,27 +155,25 @@ st.markdown("""
     code {
         background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%) !important;
         color: white !important;
-        padding: 6px 14px !important;
+        padding: 8px 16px !important;
         border-radius: 20px !important;
         font-weight: 600 !important;
-        margin: 4px !important;
+        margin: 5px 5px 5px 0 !important;
         display: inline-block !important;
-        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3) !important;
         font-size: 0.9em !important;
+        white-space: nowrap !important;
+        vertical-align: middle !important;
+        line-height: 1.2 !important;
     }
     
     /* Chat input styling */
     .stChatInputContainer {
-        border-top: 1px solid #2a2a2a;
         padding-top: 15px;
         margin-top: 20px;
-        background: #0f0f0f;
     }
     
     .stChatInput textarea {
-        background: #1f1f1f !important;
-        color: white !important;
-        border: 2px solid #3a3a3a !important;
         border-radius: 20px !important;
         padding: 12px 18px !important;
         font-size: 0.95em !important;
@@ -163,8 +182,7 @@ st.markdown("""
     
     .stChatInput textarea:focus {
         border-color: #8b5cf6 !important;
-        box-shadow: none !important;
-        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
     }
     
     /* Spinner styling */
@@ -172,55 +190,32 @@ st.markdown("""
         border-top-color: #8b5cf6 !important;
     }
     
-    /* Warning and error styling */
-    .stWarning {
-        background: #292524;
-        border-radius: 12px;
-        border-left: 4px solid #f59e0b;
-        color: #fbbf24;
-    }
-    
-    .stError {
-        background: #292524;
-        border-radius: 12px;
-        border-left: 4px solid #ef4444;
-        color: #fca5a5;
-    }
-    
-    /* Markdown in messages */
+    /* Markdown in messages - adapts to theme */
     .stChatMessage strong {
-        color: #c4b5fd;
+        color: #a78bfa;
         font-weight: 700;
     }
     
     .stChatMessage em {
-        color: #a78bfa;
+        color: #8b5cf6;
         font-style: italic;
     }
     
     /* Horizontal rule in messages */
     .stChatMessage hr {
         border: none;
-        border-top: 1px solid #3a3a3a;
         margin: 12px 0;
     }
     
-    /* Scrollbar styling */
-    ::-webkit-scrollbar {
-        width: 8px;
+    /* Dark theme hr */
+    [data-theme="dark"] .stChatMessage hr,
+    .main .stChatMessage hr {
+        border-top: 1px solid #3a3a3a;
     }
     
-    ::-webkit-scrollbar-track {
-        background: #1f1f1f;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: #8b5cf6;
-        border-radius: 10px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: #7c3aed;
+    /* Light theme hr */
+    [data-theme="light"] .stChatMessage hr {
+        border-top: 1px solid #e5e7eb;
     }
     
     /* Message container alignment fixes */
@@ -245,51 +240,24 @@ STARTER_PROMPTS = [
     "Feel-good family film"
 ]
 
-# Display Quick Starters with equal-width columns
-st.markdown("### 🎯 Quick Starters")
+# Display Quick Starters with horizontal layout
+st.markdown("### Quick Starters")
 
-# First row - 4 buttons
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    if st.button(STARTER_PROMPTS[0], key="starter_0"):
-        st.session_state.trigger_prompt = STARTER_PROMPTS[0]
-        st.rerun()
-with col2:
-    if st.button(STARTER_PROMPTS[1], key="starter_1"):
-        st.session_state.trigger_prompt = STARTER_PROMPTS[1]
-        st.rerun()
-with col3:
-    if st.button(STARTER_PROMPTS[2], key="starter_2"):
-        st.session_state.trigger_prompt = STARTER_PROMPTS[2]
-        st.rerun()
-with col4:
-    if st.button(STARTER_PROMPTS[3], key="starter_3"):
-        st.session_state.trigger_prompt = STARTER_PROMPTS[3]
-        st.rerun()
-
-# Second row - 4 buttons
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    if st.button(STARTER_PROMPTS[4], key="starter_4"):
-        st.session_state.trigger_prompt = STARTER_PROMPTS[4]
-        st.rerun()
-with col2:
-    if st.button(STARTER_PROMPTS[5], key="starter_5"):
-        st.session_state.trigger_prompt = STARTER_PROMPTS[5]
-        st.rerun()
-with col3:
-    if st.button(STARTER_PROMPTS[6], key="starter_6"):
-        st.session_state.trigger_prompt = STARTER_PROMPTS[6]
-        st.rerun()
-with col4:
-    if st.button(STARTER_PROMPTS[7], key="starter_7"):
-        st.session_state.trigger_prompt = STARTER_PROMPTS[7]
-        st.rerun()
+# Use st.columns with all buttons to enable horizontal block
+cols = st.columns(len(STARTER_PROMPTS))
+for idx, prompt_text in enumerate(STARTER_PROMPTS):
+    with cols[idx]:
+        if st.button(prompt_text, key=f"starter_{idx}"):
+            st.session_state.trigger_prompt = prompt_text
+            st.rerun()
 
 st.markdown("---")
 
-# Backend API URL
-BACKEND_URL = "https://movie-recommendation-chatbot-production.up.railway.app/recommend"
+# Backend API URL - 환경 변수에서 가져오기
+BACKEND_URL = os.getenv(
+    "BACKEND_URL",
+    "https://movie-recommendation-chatbot-production.up.railway.app/recommend"
+)
 
 # Initialize Chat History
 if "messages" not in st.session_state:
@@ -314,9 +282,9 @@ if "trigger_prompt" in st.session_state:
 
     # Generate Response
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing your mood..."):
+        with st.spinner("🎬 Analyzing your mood..."):
             try:
-                response = requests.post(BACKEND_URL, json={"user_input": prompt})
+                response = requests.post(BACKEND_URL, json={"user_input": prompt}, timeout=30)
                 
                 if response.status_code == 200:
                     data = response.json()
@@ -328,8 +296,6 @@ if "trigger_prompt" in st.session_state:
                         ai_message += "Here are the **best matching keywords** from our library for your search:\n\n"
                         keyword_tags = " ".join([f"`{k}`" for k in rec_keywords])
                         ai_message += f"{keyword_tags}\n\n"
-                        ai_message += "--- \n"
-                        ai_message += "💡 **Pro-tip:** You can use these keywords on Netflix or Google to find specific titles!"
                         
                         st.markdown(ai_message)
                         st.session_state.messages.append({"role": "assistant", "content": ai_message})
@@ -338,9 +304,13 @@ if "trigger_prompt" in st.session_state:
                         st.warning(error_msg)
                         st.session_state.messages.append({"role": "assistant", "content": error_msg})
                 else:
-                    st.error("Oops! Something went wrong with my brain (Backend Error).")
+                    st.error(f"⚠️ Backend returned status code {response.status_code}")
+            except requests.exceptions.Timeout:
+                st.error("⏱️ Request timed out. The backend might be slow. Please try again.")
+            except requests.exceptions.ConnectionError:
+                st.error("🔌 Cannot connect to backend. Please check if the service is running.")
             except Exception as e:
-                st.error("Connection failed. Is the backend server running?")
+                st.error(f"❌ An error occurred: {str(e)}")
 
 # User Input
 if prompt := st.chat_input("E.g., Chill Sunday morning, intense psychological thriller vibe..."):
@@ -351,9 +321,9 @@ if prompt := st.chat_input("E.g., Chill Sunday morning, intense psychological th
 
     # Generate Response
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing your mood..."):
+        with st.spinner("🎬 Analyzing your mood..."):
             try:
-                response = requests.post(BACKEND_URL, json={"user_input": prompt})
+                response = requests.post(BACKEND_URL, json={"user_input": prompt}, timeout=30)
                 
                 if response.status_code == 200:
                     data = response.json()
@@ -368,8 +338,6 @@ if prompt := st.chat_input("E.g., Chill Sunday morning, intense psychological th
                         # Display keywords as badges/tags
                         keyword_tags = " ".join([f"`{k}`" for k in rec_keywords])
                         ai_message += f"{keyword_tags}\n\n"
-                        ai_message += "--- \n"
-                        ai_message += "💡 **Pro-tip:** You can use these keywords on Netflix or Google to find specific titles!"
                         
                         st.markdown(ai_message)
                         st.session_state.messages.append({"role": "assistant", "content": ai_message})
@@ -378,6 +346,10 @@ if prompt := st.chat_input("E.g., Chill Sunday morning, intense psychological th
                         st.warning(error_msg)
                         st.session_state.messages.append({"role": "assistant", "content": error_msg})
                 else:
-                    st.error("Oops! Something went wrong with my brain (Backend Error).")
+                    st.error(f"⚠️ Backend returned status code {response.status_code}")
+            except requests.exceptions.Timeout:
+                st.error("⏱️ Request timed out. The backend might be slow. Please try again.")
+            except requests.exceptions.ConnectionError:
+                st.error("🔌 Cannot connect to backend. Please check if the service is running.")
             except Exception as e:
-                st.error("Connection failed. Is the backend server running?")
+                st.error(f"❌ An error occurred: {str(e)}")
