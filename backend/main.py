@@ -164,7 +164,7 @@ async def recommend_movies(request: RecommendRequest):
         # print(f"{verify_response.choices[0].message.content}")
 
         return {
-            "recommended_keywords": sorted(final_keywords),
+            "recommended_keywords": final_keywords,
             "llm_generated_keywords": llm_expanded_keywords
         }
 
