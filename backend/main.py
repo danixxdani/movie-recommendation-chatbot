@@ -62,6 +62,10 @@ async def recommend_movies(request: RecommendRequest):
         raise HTTPException(status_code=500, detail="Server keyword database is empty.")
 
     try:
+        # print(f"\n{'='*60}")
+        # print(f"📥 NEW QUERY: {request.user_input}")
+        # print(f"{'='*60}")
+        
         # --- Step 1: Intent Expansion with Core Preservation ---
         prompt_1 = f"""
         User Input: "{request.user_input}"
@@ -73,6 +77,7 @@ async def recommend_movies(request: RecommendRequest):
         2. PRESERVE CORE KEYWORDS: If the user explicitly mentions "family", "romance", "horror", etc., AT LEAST 50% of your output must include or directly relate to that core concept
         3. EXPAND APPROPRIATELY: Add related emotional tones, sub-genres, or narrative elements that ENHANCE the core concept, not replace it
         4. USE PROFESSIONAL TERMINOLOGY: Convert casual language to film industry terms (e.g., "sad" → "Melancholic", "funny" → "Comedic")
+        5. MEDIA TYPE PRESERVATION: If the user asks for a "Movie", focus ONLY on film-related terms. Avoid TV-related terms like "Drama", "Series", or "K-Drama" unless the user explicitly asked for them.
         
         Examples:
         - Input: "Feel-good family film" → Output must include: "Family", "Family-friendly", "Family bonding", "Wholesome", "All-ages", etc.
@@ -90,6 +95,9 @@ async def recommend_movies(request: RecommendRequest):
             ]
         )
         llm_expanded_keywords = [k.strip() for k in response_1.choices[0].message.content.split(",") if k.strip()]
+        
+        # print(f"\n🔍 Step 1 - Expanded Keywords:")
+        # print(f"\n{response_1.choices[0].message.content}")
 
         # --- Step 2: Broad Semantic Retrieval ---
         query_resp = client.embeddings.create(input=llm_expanded_keywords, model="text-embedding-3-small")
@@ -101,11 +109,16 @@ async def recommend_movies(request: RecommendRequest):
         for row in similarities:
             top_indices = row.argsort()[-5:][::-1]
             for idx in top_indices:
-                if row[idx] >= 0.38:
+                if row[idx] >= 0.45:
                     candidates.add(ALL_KEYWORDS[idx])
         
         candidate_list = list(candidates)
+        
+        # print(f"\n🎯 Step 2 - Database Candidates Found: {len(candidate_list)}")
+        # print(f"  {', '.join(sorted(candidate_list))}")
+        
         if not candidate_list:
+            print(f"\n⚠️  No candidates found in database")
             return {"recommended_keywords": [], "llm_generated_keywords": llm_expanded_keywords}
 
         # --- Step 3: Context-Aware Filtering & Combination ---
@@ -113,34 +126,41 @@ async def recommend_movies(request: RecommendRequest):
         User's Original Intent: "{request.user_input}"
         Database Candidates: {", ".join(candidate_list)}
 
+        CRITICAL RULE: 
+        - A keyword is valid ONLY if it covers the ENTIRE intent. 
+        - If a candidate from the list only covers partially, you ARE FORBIDDEN from using it alone. You MUST combine it with another candidate using a '+' sign.
+        - If the user specifies a media type (e.g., Movie or TV Series), you MUST NOT use keywords that are exclusive to the other format.
+
         Task:
-        1. Extract the CORE CONTEXT from the user's intent (e.g., if they said "intense love stories", the core context is LOVE/ROMANCE).
-        2. From the Database Candidates, select 5-8 keywords that best match the intent.
-        3. KEYWORD COMBINATION RULES:
-           - If a generic keyword (e.g., "Intense", "Dark", "Emotional") exists AND a specific genre/context keyword (e.g., "Romantic Drama", "Thriller", "Romance") exists in the candidates:
-             * Combine them if it clarifies the user's intent
-             * Format combined keywords with a + sign: "Intense + Romantic Drama"
-             * Only combine if BOTH words exist separately in the Database Candidates
-           - If a keyword is already specific enough (e.g., "Star-Crossed Lovers"), keep it as is
-           - Prefer combined keywords that remove ambiguity
-        4. FILTERING RULES:
-           - Reject standalone generic keywords that could apply to multiple genres outside the user's context
-           - Example: For "intense love stories", reject bare "Intense" or "Second Chance" but accept "Intense + Romance" or "Second Chance at Love"
-        5. Use ONLY words from the Database Candidates list (you can combine them with +, but don't invent new words).
-        
-        Return 5-8 final keywords separated by commas. Use the format "Keyword1 + Keyword2" for combined terms.
-        Examples: "Intense + Romantic Drama", "Dark + Comedy", "Star-Crossed Lovers", "Forbidden Love"
+        1. DECONSTRUCT INTENT: Break down the user's intent into its essential components.
+        2. INTERSECTION PRINCIPLE: Every output keyword must represent the INTERSECTION of all essential components.
+        3. COMBINATION LOGIC:
+           - If a single keyword in 'Database Candidates' already captures the full intersection, use it.
+           - Otherwise, you MUST create a combined term by joining a keyword for Component A and a keyword for Component B from the 'Database Candidates' using a '+' sign.
+        4. ANTI-GENERALIZATION RULE: 
+           - DO NOT return a keyword that only covers part of the intent. 
+        5. SOURCE INTEGRITY: Use ONLY exact strings from 'Database Candidates'. Do not shorten or modify them except for joining with '+'.
+        6. SELECTION: Return 5-8 most relevant, high-precision keywords/combinations.
+        7. FILTERING: Remove any candidate that is out of user's intent or is irrelevant.
+        8. RANKING RULE: List the keywords in order of relevance to the User's Original Intent.
+
+        CRITICAL OUTPUT RULES:
+        - Output ONLY the keywords separated by commas.
+        - **DO NOT include any labels, core context, intros, or outros.**
         """
         
         verify_response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a precision movie search filter. Your job is to eliminate ambiguous keywords that could apply to multiple genres when the user specified a specific context."},
+            messages=[ 
+                {"role": "system", "content": "You are a precision movie search filter. Your job is to eliminate ambiguous keywords that could apply to multiple genres when the user specified a specific context. to ensure the user's \"Primary Intent\" is preserved in every single keyword returned. Your response must be a single line of comma-separated strings."},
                 {"role": "user", "content": verification_prompt}
             ]
         )
         
         final_keywords = [k.strip() for k in verify_response.choices[0].message.content.split(",") if k.strip()]
+        
+        # print(f"\n✅ Step 3 - Final Recommended Keywords:")
+        # print(f"{verify_response.choices[0].message.content}")
 
         return {
             "recommended_keywords": sorted(final_keywords),
@@ -148,7 +168,7 @@ async def recommend_movies(request: RecommendRequest):
         }
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"\n❌ ERROR: {e}\n")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 if __name__ == "__main__":
