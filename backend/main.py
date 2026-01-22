@@ -137,6 +137,7 @@ async def recommend_movies(request: RecommendRequest):
         3. COMBINATION LOGIC:
            - If a single keyword in 'Database Candidates' already captures the full intersection, use it.
            - Otherwise, you MUST create a combined term by joining a keyword for Component A and a keyword for Component B from the 'Database Candidates' using a ' + ' sign.
+           - Combine only up to 2 keywords, not more than that.
         4. ANTI-GENERALIZATION RULE: 
            - DO NOT return a keyword that only covers part of the intent. 
         5. SOURCE INTEGRITY: Use ONLY exact strings from 'Database Candidates'. Do not shorten or modify them except for joining with ' + '.
