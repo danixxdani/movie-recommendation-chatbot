@@ -136,13 +136,13 @@ async def recommend_movies(request: RecommendRequest):
         2. INTERSECTION PRINCIPLE: Every output keyword must represent the INTERSECTION of all essential components.
         3. COMBINATION LOGIC:
            - If a single keyword in 'Database Candidates' already captures the full intersection, use it.
-           - Otherwise, you MUST create a combined term by joining a keyword for Component A and a keyword for Component B from the 'Database Candidates' using a '+' sign.
+           - Otherwise, you MUST create a combined term by joining a keyword for Component A and a keyword for Component B from the 'Database Candidates' using a ' + ' sign.
         4. ANTI-GENERALIZATION RULE: 
            - DO NOT return a keyword that only covers part of the intent. 
-        5. SOURCE INTEGRITY: Use ONLY exact strings from 'Database Candidates'. Do not shorten or modify them except for joining with '+'.
+        5. SOURCE INTEGRITY: Use ONLY exact strings from 'Database Candidates'. Do not shorten or modify them except for joining with ' + '.
         6. SELECTION: Return 5-8 most relevant, high-precision keywords/combinations.
         7. FILTERING: Remove any candidate that is out of user's intent or is irrelevant.
-        8. RANKING RULE: List the keywords in order of relevance to the User's Original Intent.
+        8. RANKING RULE: List the keywords in order of relevance to the "{request.user_input}".
 
         CRITICAL OUTPUT RULES:
         - Output ONLY the keywords separated by commas.
@@ -170,6 +170,7 @@ async def recommend_movies(request: RecommendRequest):
     except Exception as e:
         print(f"\n❌ ERROR: {e}\n")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
